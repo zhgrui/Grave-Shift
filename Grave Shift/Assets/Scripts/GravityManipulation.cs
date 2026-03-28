@@ -14,7 +14,7 @@ public class GravityManipulation : MonoBehaviour
     [SerializeField] private Transform playerTransform;
 
     [Header("Settings")]
-    [SerializeField] private float rotationDuration = 0.8f;
+    [SerializeField] private float rotationDuration = 2.5f;
     [SerializeField] private float cooldownDuration = 2f;
 
     [Header("Teleportation Surfaces")]
@@ -25,6 +25,7 @@ public class GravityManipulation : MonoBehaviour
     private bool isRotating;
     private float cooldownTimer;
     private int currentRotationStep;
+    private CharacterController playerCC;
 
     public bool IsTransitioning => isRotating;
 
@@ -53,6 +54,9 @@ public class GravityManipulation : MonoBehaviour
             if (world != null)
                 worldContainer = world.transform;
         }
+
+        if (playerTransform != null)
+            playerCC = playerTransform.GetComponent<CharacterController>();
 
         AutoDiscoverSurfaces();
     }
@@ -129,6 +133,10 @@ public class GravityManipulation : MonoBehaviour
 
         SetAllSurfacesActive(false);
 
+        // Disable CharacterController during rotation so it doesn't fight the world moving
+        if (playerCC != null)
+            playerCC.enabled = false;
+
         Vector3 pivot = playerTransform.position;
         float targetAngle = 90f;
         float elapsed = 0f;
@@ -154,23 +162,22 @@ public class GravityManipulation : MonoBehaviour
         worldContainer.RotateAround(pivot, Vector3.right, targetAngle);
 
         currentRotationStep = (currentRotationStep + 1) % 4;
-        ApplyGravityForStep(currentRotationStep);
         ActivateCurrentFloorSurface();
+
+        // Gravity stays as world-down since we rotate the world, not the player.
+        // The new floor is always below the player after world rotation.
+        Physics.gravity = new Vector3(0, -9.81f, 0);
+
+        // Push player upward to clear any geometry that rotated into their position
+        if (playerCC != null)
+        {
+            playerTransform.position += Vector3.up * 1.5f;
+            playerCC.enabled = true;
+        }
 
         cooldownTimer = cooldownDuration;
         isRotating = false;
         OnGravityShiftEnd?.Invoke();
-    }
-
-    private void ApplyGravityForStep(int step)
-    {
-        switch (step)
-        {
-            case 0: Physics.gravity = new Vector3(0, -9.81f, 0); break;
-            case 1: Physics.gravity = new Vector3(0, 0, 9.81f); break;
-            case 2: Physics.gravity = new Vector3(0, 9.81f, 0); break;
-            case 3: Physics.gravity = new Vector3(0, 0, -9.81f); break;
-        }
     }
 
     private void SetAllSurfacesActive(bool active)

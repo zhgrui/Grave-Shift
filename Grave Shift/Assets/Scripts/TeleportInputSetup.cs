@@ -17,6 +17,7 @@ public class TeleportInputSetup : MonoBehaviour
     private TeleportCooldown cooldown;
     private InputAction gripAction;
     private bool blockedByGravity;
+    private PlayerController playerController;
 
     private void Awake()
     {
@@ -29,6 +30,8 @@ public class TeleportInputSetup : MonoBehaviour
 
         if (teleportationProvider == null)
             teleportationProvider = FindAnyObjectByType<TeleportationProvider>();
+
+        playerController = FindAnyObjectByType<PlayerController>();
     }
 
     private void OnEnable()
@@ -38,10 +41,7 @@ public class TeleportInputSetup : MonoBehaviour
         gripAction.canceled += OnGripReleased;
 
         if (GravityManipulation.Instance != null)
-        {
             GravityManipulation.Instance.OnGravityShiftStart += OnGravityShiftStart;
-            GravityManipulation.Instance.OnGravityShiftEnd += OnGravityShiftEnd;
-        }
     }
 
     private void OnDisable()
@@ -51,10 +51,7 @@ public class TeleportInputSetup : MonoBehaviour
         gripAction.Disable();
 
         if (GravityManipulation.Instance != null)
-        {
             GravityManipulation.Instance.OnGravityShiftStart -= OnGravityShiftStart;
-            GravityManipulation.Instance.OnGravityShiftEnd -= OnGravityShiftEnd;
-        }
     }
 
     private void OnGravityShiftStart()
@@ -63,9 +60,14 @@ public class TeleportInputSetup : MonoBehaviour
         rayInteractor.enabled = false;
     }
 
-    private void OnGravityShiftEnd()
+    private void Update()
     {
-        blockedByGravity = false;
+        // Unblock teleportation once player has landed after gravity shift
+        if (blockedByGravity && !GravityManipulation.Instance.IsTransitioning
+            && playerController != null && !playerController.IsFalling)
+        {
+            blockedByGravity = false;
+        }
     }
 
     private void OnGripPressed(InputAction.CallbackContext ctx)
