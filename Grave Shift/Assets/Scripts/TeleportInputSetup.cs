@@ -6,6 +6,7 @@ using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
 /// <summary>
 /// Hold left grip to show teleport ray, release to teleport.
 /// Attach to the same GameObject as the XRRayInteractor (Left Controller).
+/// Disables teleportation during gravity transitions.
 /// </summary>
 [RequireComponent(typeof(XRRayInteractor))]
 public class TeleportInputSetup : MonoBehaviour
@@ -15,6 +16,7 @@ public class TeleportInputSetup : MonoBehaviour
     private XRRayInteractor rayInteractor;
     private TeleportCooldown cooldown;
     private InputAction gripAction;
+    private bool blockedByGravity;
 
     private void Awake()
     {
@@ -34,6 +36,12 @@ public class TeleportInputSetup : MonoBehaviour
         gripAction.Enable();
         gripAction.started += OnGripPressed;
         gripAction.canceled += OnGripReleased;
+
+        if (GravityManipulation.Instance != null)
+        {
+            GravityManipulation.Instance.OnGravityShiftStart += OnGravityShiftStart;
+            GravityManipulation.Instance.OnGravityShiftEnd += OnGravityShiftEnd;
+        }
     }
 
     private void OnDisable()
@@ -41,10 +49,30 @@ public class TeleportInputSetup : MonoBehaviour
         gripAction.started -= OnGripPressed;
         gripAction.canceled -= OnGripReleased;
         gripAction.Disable();
+
+        if (GravityManipulation.Instance != null)
+        {
+            GravityManipulation.Instance.OnGravityShiftStart -= OnGravityShiftStart;
+            GravityManipulation.Instance.OnGravityShiftEnd -= OnGravityShiftEnd;
+        }
+    }
+
+    private void OnGravityShiftStart()
+    {
+        blockedByGravity = true;
+        rayInteractor.enabled = false;
+    }
+
+    private void OnGravityShiftEnd()
+    {
+        blockedByGravity = false;
     }
 
     private void OnGripPressed(InputAction.CallbackContext ctx)
     {
+        if (blockedByGravity)
+            return;
+
         if (cooldown != null && cooldown.IsOnCooldown)
             return;
 
